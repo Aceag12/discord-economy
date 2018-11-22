@@ -22,7 +22,9 @@ const DB = sequelize.define('Economy', {
 
 DB.sync()
 
-console.log('Database Loaded!')
+console.log(`╔[════════════════Database Loaded═══════════════════════════════════════]╗
+╔[════════════════If You Have Any Problems══════════════════════════════]╗
+╔[════════════════Join https://discord.gg/Hc9rC8X On Discord════════════]╗`)
 
 module.exports = {
 
@@ -49,7 +51,10 @@ module.exports = {
         }
       });
       if (Info > 0) {
-        return resolve(`Balance Set.`);
+        return resolve({
+          userid: UserID,
+          balance: toSet
+        })
       } else {
 
         try {
@@ -58,7 +63,10 @@ module.exports = {
             balance: 0,
             daily: 0
           });
-          return resolve(`Balance Set.`)
+          return resolve({
+            userid: UserID,
+            balance: toSet
+          })
         } catch (e) {
           if (e.name === 'SequelizeUniqueConstraintError') {
             return resolve(`Duplicate Found, shouldn\'t happen in this function, check typo\'s`)
@@ -690,13 +698,23 @@ module.exports = {
     });
   },
 
-  _Work: async function(UserID, data) {
-    if (data.jobs && typeof jobs != 'array') throw new Error('Work function parameter jobs is not an array!')
-    if (data.money && !parseInt(data.money)) throw new Error('Work function parameter obj.money needs to be a number!')
+  _Work: async function(UserID, data = {}) {
+    if (!UserID) throw new Error('Work function is missing parameters!')
+    if (data.jobs && !Array.isArray(data.jobs)) throw new Error('Work function parameter data.jobs is not an array!')
+    if (data.money && !parseInt(data.money)) throw new Error('Work function parameter data.money needs to be a number!')
+    if (data.failurerate && !parseInt(data.failurerate)) throw new Error('Work function parameter data.failurerate needs to be a number!')
+    if (data.failurerate) data.failurerate = parseInt(data.failurerate)
+    if (data.failurerate && data.failurerate < 0 || data.failurerate > 100) throw new Error('Work function parameter data.failurerate needs to be a number! between 0-100')
     if (data.money) data.money = parseInt(data.money)
 
-    if (!data.jobs) data.jobs = ["Miner", "Unemployed", "Bartender", "Cashier", "Cleaner", "Drugdealer", "Assistant", "Nurse", "Cleaner", "Teacher", "Accountants", "Security Gard", "Sheriff", "Lawyer", "Dishwasher", "Electricians", "Singer", "Dancer"];
-    if (!data.jobs) data.money = Math.floor(Math.random() * 101)
+    if (!data.jobs) data.jobs = ["Miner", "Bartender", "Cashier", "Cleaner", "Drugdealer", "Assistant", "Nurse", "Cleaner", "Teacher", "Accountants", "Security Guard", "Sheriff", "Lawyer", "Dishwasher", "Electrician", "Singer", "Dancer"];
+    if (!data.money) data.money = Math.floor(Math.random() * 101)
+    if (!data.failurerate) data.failurerate = 50
+
+    var success = true;
+
+    var randomnumber = Math.random()
+    if (randomnumber <= data.failurerate / 100) success = false;
 
     const WorkProm = new Promise(async (resolve, error) => {
 
@@ -706,6 +724,8 @@ module.exports = {
         }
       });
       if (Info) {
+
+        if (success) {
 
           const Info2 = await DB.update({
             balance: Info.balance + data.money
@@ -718,14 +738,26 @@ module.exports = {
           if (Info2 > 0) {
             return resolve({
               userid: Info.userID,
-              job: jobs[Math.floor(Math.random() * jobs.length)],
+              earned: data.money,
+              job: data.jobs[Math.floor(Math.random() * data.jobs.length)],
               balance: Info.balance + data.money
             })
           }
 
+        } else {
+          return resolve({
+            userid: Info.userID,
+            earned: 0,
+            job: data.jobs[Math.floor(Math.random() * data.jobs.length)],
+            balance: Info.balance
+          })
+        }
+
       }
 
       try {
+        if (!success) data.money = 0;
+
         const Info3 = await DB.create({
           userID: UserID,
           balance: data.money,
@@ -733,7 +765,8 @@ module.exports = {
         });
         return resolve({
           userid: UserID,
-          job: jobs[Math.floor(Math.random() * jobs.length)],
+          earned: data.money,
+          job: data.jobs[Math.floor(Math.random() * data.jobs.length)],
           balance: data.money
         })
       } catch (e) {
@@ -744,86 +777,6 @@ module.exports = {
       }
     });
     return WorkProm;
-  },
-
-  Steal: function(UserID, DiceNumber, Input) {
-    return dbQueue.addToQueue({
-      "value": this._Steal.bind(this),
-      "args": [UserID, DiceNumber, Input]
-    });
-  },
-
-  _Steal: async function(FromUser, ToUser, Amount) {
-    if (!FromUser || !ToUser || !Amount) throw new Error('Transfer function is missing parameters!')
-    if (!parseInt(Amount)) throw new Error('Transfer function parameter Amount needs to be a number!')
-    Amount = parseInt(Amount)
-
-    const StealProm = new Promise(async (resolve, error) => {
-
-      const Info = await DB.findOne({
-        where: {
-          userID: FromUser
-        }
-      });
-      if (Info) {
-
-        if (Info.balance < Amount) {
-          throw new Error('The user that transfers has insufficient funds.')
-          return
-        }
-
-        const Info6 = await DB.update({
-          balance: Info.balance - Amount
-        }, {
-          where: {
-            userID: FromUser
-          }
-        });
-
-        const Info2 = await DB.findOne({
-          where: {
-            userID: ToUser
-          }
-        });
-        if (Info2) {
-
-          const Info3 = await DB.update({
-            balance: Info2.balance + Amount
-          }, {
-            where: {
-              userID: ToUser
-            }
-          });
-          if (Info3 > 0) {
-
-            return resolve({
-              FromUser: Info.balance - Amount,
-              ToUser: Info2.balance + Amount
-            })
-          }
-          return error('Something went wrong in function Transfer')
-        } else {
-          try {
-            const Info5 = await DB.create({
-              userID: ToUser,
-              balance: Amount,
-              daily: 0
-            });
-            return resolve({
-              FromUser: Info.balance - Amount,
-              ToUser: Amount
-            })
-          } catch (e) {
-            if (e.name === 'SequelizeUniqueConstraintError') {
-              return resolve(`Duplicate Found, shouldn\'t happen in this function, check typo\'s`)
-            }
-            return error(e)
-          }
-        }
-      }
-      throw new Error('The user that transfers has insufficient funds.')
-    });
-    return StealProm;
   }
 
 }
