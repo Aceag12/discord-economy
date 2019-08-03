@@ -8,7 +8,7 @@ const sequelize = new Sequelize('database', 'Hot123', '132435465768798', {
   dialect: 'sqlite',
   logging: false,
   operatorsAliases: false,
-  storage: 'database.sqlite',
+  storage: 'data/economy.sqlite',
 });
 
 const DB = sequelize.define('Economy', {
@@ -22,9 +22,7 @@ const DB = sequelize.define('Economy', {
 
 DB.sync()
 
-console.log(`╔[════════════════Database Loaded═══════════════════════════════════════]╗
-╔[════════════════If You Have Any Problems══════════════════════════════]╗
-╔[════════════════Join https://discord.gg/Hc9rC8X On Discord════════════]╗`)
+console.log(`╔[════════════════Database Loaded═══════════════════]╗`)
 
 module.exports = {
 
